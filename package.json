@@ -8,10 +8,11 @@
   },
   "files": [
     "bin",
+    "gateway",
     "dist"
   ],
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "scripts": {
     "dev": "vite",

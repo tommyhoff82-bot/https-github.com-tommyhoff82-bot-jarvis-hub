@@ -12,6 +12,10 @@ A modern, premium web app that serves as a single shareable hub to access AI too
 - **Share Hub** - Easily share your tools hub with others
 - **Icon-Based Cards** - Beautiful gradient icons and soft shadows
 - **Fast Loading** - Built with React and Vite for optimal performance
+- **Installable App** - Add it to your dock/home screen like a native app
+- **AI Gateway with Automatic Failover** - Route requests across Claude,
+  OpenAI, Gemini, Perplexity, DeepSeek, and Grok, with automatic failover
+  when one runs out of quota
 
 ## 🎯 Categories
 
@@ -107,12 +111,69 @@ service worker. You still need `omniroute` running locally for the tool
 links and any live data — installing it just gives you an app icon/window
 instead of a bookmark.
 
-## 🔌 Connecting IDE Assistants to OmniRoute
+## 🔀 AI Gateway & Automatic Failover
 
-If you're also running an OmniRoute OpenAI-compatible gateway (a separate
-process that proxies/routes requests to your LLM providers), you can point
-IDE assistants like [Continue](https://continue.dev) at it instead of at a
-single provider.
+Running `omniroute` doesn't just start the dashboard — it also starts a
+small OpenAI-compatible **AI gateway** (default `http://localhost:20128/v1`)
+that automatically fails over across AI providers when one is out of quota,
+rate-limited, or erroring, so other tools and scripts you point at it don't
+just stop working when a single provider runs dry.
+
+**Fallback order:** Claude (Anthropic) → ChatGPT (OpenAI) → Gemini (Google)
+→ Perplexity → DeepSeek → Grok (xAI).
+
+### Enabling it
+
+Set an API key for any providers you have, as environment variables before
+running `omniroute` (see `.env.example`):
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+export OPENAI_API_KEY=sk-...
+export GEMINI_API_KEY=...       # or GOOGLE_API_KEY
+export PERPLEXITY_API_KEY=...
+export DEEPSEEK_API_KEY=...
+export XAI_API_KEY=...
+
+omniroute
+```
+
+You don't need all of them — the gateway only routes to providers whose key
+is set, in the order above. With zero keys set, the gateway still starts but
+returns a clear error on requests until you add at least one.
+
+### Using it
+
+Send standard OpenAI-shaped chat completion requests:
+
+```bash
+curl http://localhost:20128/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+- `"model": "auto"` tries providers in fallback order until one succeeds.
+- `"model": "openai:gpt-4o"` (or `anthropic:`, `gemini:`, `perplexity:`,
+  `deepseek:`, `grok:`) targets one provider directly, bypassing failover.
+- `GET /status` returns which providers are configured and a log of recent
+  routing decisions (which provider served each request, and what it fell
+  back from).
+- `GET /v1/models` lists `auto` plus each configured provider.
+
+Other flags: `--gateway-port <number>` to change the port, `--no-gateway` /
+`--dashboard-only` to run just the dashboard, `--gateway-only` to run just
+the API with no UI.
+
+**Limitations to know about:** streaming (`"stream": true`) returns the
+full response as a single chunk rather than real token-by-token streaming;
+and this is local, unauthenticated routing between your own provider keys —
+it's not a way to get around a provider's usage limits, just a way to keep
+working on a different provider when one runs out.
+
+### Connecting IDE assistants (e.g. Continue)
 
 An example config is provided at
 [`examples/continue-config.yaml`](examples/continue-config.yaml):
@@ -127,22 +188,26 @@ models:
 ```
 
 Copy the `models` entry into your Continue config (`~/.continue/config.yaml`),
-merging it into an existing `models` list if you have one, then swap in your
-real OmniRoute API key. The `auto` model name tells the gateway to route each
-request to the best backend model rather than pinning to one provider.
-
-> Note: this is a client-side config for whatever gateway you have listening
-> on that port — it's separate from the `omniroute` dashboard CLI in this
-> repo, which serves the tools hub UI rather than an LLM API.
+merging it into an existing `models` list if you have one. The gateway
+doesn't check the `apiKey` field itself (it's meant to run locally, trusted),
+so any placeholder value works — the real provider keys live in your
+environment variables, per above.
 
 ## 📁 Project Structure
 
 ```
 jarvis-hub/
 ├── bin/
-│   └── omniroute.js      # CLI entry point (serves dist/ and opens the dashboard)
+│   └── omniroute.js      # CLI entry point (starts the gateway + dashboard)
+├── gateway/
+│   ├── providers.js      # Provider adapters + fallback order
+│   └── server.js         # OpenAI-compatible API with automatic failover
 ├── examples/
-│   └── continue-config.yaml  # Example client config for an OmniRoute gateway
+│   └── continue-config.yaml  # Example client config for the OmniRoute gateway
+├── public/
+│   ├── manifest.webmanifest  # Installable-app manifest
+│   ├── icon.svg           # App icon
+│   └── sw.js               # Service worker (offline shell + installability)
 ├── src/
 │   ├── App.jsx           # Main React component
 │   ├── index.css         # Global styles

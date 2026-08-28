@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ExternalLink, Search, Share2, Sparkles, Star, X } from 'lucide-react'
+import { ExternalLink, Search, Share2, Shuffle, Sparkles, Star, X } from 'lucide-react'
 
 const FAVORITES_KEY = 'jarvis-hub-favorites'
+const GATEWAY_URL = 'http://localhost:20128'
+const GATEWAY_POLL_INTERVAL_MS = 10000
 
 const TOOLS = [
   // AI Assistants
@@ -63,6 +65,123 @@ function loadFavorites() {
   } catch {
     return []
   }
+}
+
+function useGatewayStatus() {
+  const [status, setStatus] = useState('loading') // 'loading' | 'online' | 'offline'
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    let interval
+
+    const resolveGatewayUrl = async () => {
+      // The dashboard is a static build, so it can't know at build time
+      // which port `omniroute --gateway-port` actually used at runtime.
+      // The CLI serves this small config endpoint alongside the dashboard;
+      // fall back to the documented default if it's unavailable (e.g. when
+      // running the frontend alone via `npm run dev`).
+      try {
+        const res = await fetch('/omniroute-config.json')
+        if (res.ok) {
+          const { gatewayUrl } = await res.json()
+          if (gatewayUrl) return gatewayUrl
+        }
+      } catch {
+        // fall through to default
+      }
+      return GATEWAY_URL
+    }
+
+    const poll = async (gatewayUrl) => {
+      try {
+        const res = await fetch(`${gatewayUrl}/status`)
+        if (!res.ok) throw new Error('Gateway responded with an error')
+        const json = await res.json()
+        if (!cancelled) {
+          setData(json)
+          setStatus('online')
+        }
+      } catch {
+        if (!cancelled) {
+          setData(null)
+          setStatus('offline')
+        }
+      }
+    }
+
+    resolveGatewayUrl().then((gatewayUrl) => {
+      if (cancelled) return
+      poll(gatewayUrl)
+      interval = setInterval(() => poll(gatewayUrl), GATEWAY_POLL_INTERVAL_MS)
+    })
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
+
+  return { status, data }
+}
+
+function GatewayPanel() {
+  const { status, data } = useGatewayStatus()
+
+  return (
+    <section className="gateway-panel">
+      <div className="gateway-panel-header">
+        <h2>
+          <Shuffle size={18} />
+          Connected AI Resources
+        </h2>
+        <span className={`gateway-status-pill gateway-status-${status}`}>
+          {status === 'online' ? 'Gateway online' : status === 'offline' ? 'Gateway offline' : 'Checking…'}
+        </span>
+      </div>
+
+      {status === 'offline' && (
+        <p className="gateway-hint">
+          No AI gateway detected at <code>localhost:20128</code>. Run <code>omniroute</code> with at least one
+          provider API key set (e.g. <code>ANTHROPIC_API_KEY</code>) to enable automatic failover between AI
+          providers when one runs out of quota.
+        </p>
+      )}
+
+      {status === 'online' && data && (
+        <>
+          <div className="gateway-providers">
+            {data.providers.map((provider, index) => (
+              <span
+                key={provider.id}
+                className={`gateway-provider-chip${provider.configured ? ' is-configured' : ''}`}
+                title={provider.configured ? 'API key detected — active in the fallback chain' : 'No API key set for this provider'}
+              >
+                <span className="gateway-provider-rank">{index + 1}</span>
+                {provider.label}
+              </span>
+            ))}
+          </div>
+
+          {data.recentRoutes?.length > 0 ? (
+            <ul className="gateway-log">
+              {data.recentRoutes.slice(0, 5).map((entry, index) => (
+                <li key={index}>
+                  <span className="gateway-log-provider">{entry.provider}</span>
+                  {entry.fellBackFrom?.length > 0 && (
+                    <span className="gateway-log-fallback"> (after {entry.fellBackFrom.join(', ')} failed)</span>
+                  )}
+                  <span className="gateway-log-time">{new Date(entry.time).toLocaleTimeString()}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="gateway-hint">No requests routed yet.</p>
+          )}
+        </>
+      )}
+    </section>
+  )
 }
 
 function ToolCard({ tool, isFavorite, onToggleFavorite }) {
@@ -187,6 +306,8 @@ export default function App() {
           ))}
         </div>
       </header>
+
+      <GatewayPanel />
 
       <main className="tool-grid">
         {filteredTools.length === 0 ? (
