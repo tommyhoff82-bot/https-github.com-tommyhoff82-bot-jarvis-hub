@@ -81,12 +81,42 @@ This creates a `dist` folder with optimized production files. Once built, you ca
 npm start
 ```
 
+## 🔌 Connecting IDE Assistants to OmniRoute
+
+If you're also running an OmniRoute OpenAI-compatible gateway (a separate
+process that proxies/routes requests to your LLM providers), you can point
+IDE assistants like [Continue](https://continue.dev) at it instead of at a
+single provider.
+
+An example config is provided at
+[`examples/continue-config.yaml`](examples/continue-config.yaml):
+
+```yaml
+models:
+  - name: OmniRoute - Auto
+    provider: openai
+    model: auto
+    apiBase: http://localhost:20128/v1
+    apiKey: your_omniroute_api_key_here
+```
+
+Copy the `models` entry into your Continue config (`~/.continue/config.yaml`),
+merging it into an existing `models` list if you have one, then swap in your
+real OmniRoute API key. The `auto` model name tells the gateway to route each
+request to the best backend model rather than pinning to one provider.
+
+> Note: this is a client-side config for whatever gateway you have listening
+> on that port — it's separate from the `omniroute` dashboard CLI in this
+> repo, which serves the tools hub UI rather than an LLM API.
+
 ## 📁 Project Structure
 
 ```
 jarvis-hub/
 ├── bin/
 │   └── omniroute.js      # CLI entry point (serves dist/ and opens the dashboard)
+├── examples/
+│   └── continue-config.yaml  # Example client config for an OmniRoute gateway
 ├── src/
 │   ├── App.jsx           # Main React component
 │   ├── index.css         # Global styles

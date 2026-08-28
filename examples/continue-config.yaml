@@ -1,0 +1,22 @@
+# Example Continue (https://continue.dev) config for pointing the
+# VS Code / JetBrains assistant at a locally running OmniRoute gateway.
+#
+# Usage:
+#   1. Have your OmniRoute gateway running and listening on the port below
+#      (this is a separate OpenAI-compatible API process, not the
+#      `omniroute` dashboard CLI in this repo, which only serves the
+#      tools hub UI).
+#   2. Copy the `models` entry below into your Continue config.yaml
+#      (~/.continue/config.yaml), or merge it if you already have a
+#      `models` list.
+#   3. Replace `your_omniroute_api_key_here` with your real gateway key.
+#
+# The "auto" model name tells OmniRoute to pick the best backend model
+# for each request instead of pinning to one provider/model.
+
+models:
+  - name: OmniRoute - Auto
+    provider: openai
+    model: auto
+    apiBase: http://localhost:20128/v1
+    apiKey: your_omniroute_api_key_here
