@@ -30,7 +30,26 @@ A modern, premium web app that serves as a single shareable hub to access AI too
 ### Prerequisites
 - Node.js 16+ and npm
 
-### Installation
+### Option A: Install globally via npm
+
+Jarvis Hub ships as the `omniroute` CLI — install it once and launch the gateway dashboard from anywhere:
+
+```bash
+npm install -g omniroute
+
+# Start the gateway dashboard
+omniroute
+```
+
+This builds/serves the dashboard and opens it at `http://localhost:3000`. Useful flags:
+
+```bash
+omniroute --port 4000   # serve on a custom port
+omniroute --no-open     # don't auto-open a browser
+omniroute --help        # see all options
+```
+
+### Option B: Run from source
 
 1. Clone the repository:
 ```bash
@@ -56,12 +75,18 @@ npm run dev
 npm run build
 ```
 
-This creates a `dist` folder with optimized production files.
+This creates a `dist` folder with optimized production files. Once built, you can also serve it the same way the global CLI does:
+
+```bash
+npm start
+```
 
 ## 📁 Project Structure
 
 ```
 jarvis-hub/
+├── bin/
+│   └── omniroute.js      # CLI entry point (serves dist/ and opens the dashboard)
 ├── src/
 │   ├── App.jsx           # Main React component
 │   ├── index.css         # Global styles
