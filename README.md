@@ -12,6 +12,10 @@ A modern, premium web app that serves as a single shareable hub to access AI too
 - **Share Hub** - Easily share your tools hub with others
 - **Icon-Based Cards** - Beautiful gradient icons and soft shadows
 - **Fast Loading** - Built with React and Vite for optimal performance
+- **Installable App** - Add it to your dock/home screen like a native app
+- **AI Gateway with Automatic Failover** - Route requests across Claude,
+  OpenAI, Gemini, Perplexity, DeepSeek, and Grok, with automatic failover
+  when one runs out of quota
 
 ## 🎯 Categories
 
@@ -30,7 +34,26 @@ A modern, premium web app that serves as a single shareable hub to access AI too
 ### Prerequisites
 - Node.js 16+ and npm
 
-### Installation
+### Option A: Install globally via npm
+
+Jarvis Hub ships as the `omniroute` CLI — install it once and launch the gateway dashboard from anywhere:
+
+```bash
+npm install -g omniroute
+
+# Start the gateway dashboard
+omniroute
+```
+
+This builds/serves the dashboard and opens it at `http://localhost:3000`. Useful flags:
+
+```bash
+omniroute --port 4000   # serve on a custom port
+omniroute --no-open     # don't auto-open a browser
+omniroute --help        # see all options
+```
+
+### Option B: Run from source
 
 1. Clone the repository:
 ```bash
@@ -56,12 +79,135 @@ npm run dev
 npm run build
 ```
 
-This creates a `dist` folder with optimized production files.
+This creates a `dist` folder with optimized production files. Once built, you can also serve it the same way the global CLI does:
+
+```bash
+npm start
+```
+
+## 📲 Accessing & Installing the Dashboard as an App
+
+Once `omniroute` is running (see above), the dashboard of your connected
+resources is just a web page at `http://localhost:3000` (or whatever
+`--port` you passed) — open that URL in your browser to see it any time the
+CLI is running.
+
+To save it as an actual app instead of a browser tab, the dashboard ships
+with a web app manifest, icon, and service worker, so browsers offer a
+native "install" option:
+
+- **Chrome / Edge (desktop)**: with the dashboard open, click the install
+  icon (⊕ or a small monitor icon) at the right of the address bar, or open
+  the browser menu → "Install Jarvis Hub…" / "Apps → Install this site as
+  an app". It then opens in its own window and gets a launcher icon like
+  any other installed app.
+- **Chrome (Android)**: open the ⋮ menu → "Add to Home screen" / "Install
+  app".
+- **Safari (iOS)**: tap the Share icon → "Add to Home Screen".
+
+Once installed, it launches standalone (no browser chrome) and keeps
+working offline for the shell UI, since it's served by a small local
+service worker. You still need `omniroute` running locally for the tool
+links and any live data — installing it just gives you an app icon/window
+instead of a bookmark.
+
+## 🔀 AI Gateway & Automatic Failover
+
+Running `omniroute` doesn't just start the dashboard — it also starts a
+small OpenAI-compatible **AI gateway** (default `http://localhost:20128/v1`)
+that automatically fails over across AI providers when one is out of quota,
+rate-limited, or erroring, so other tools and scripts you point at it don't
+just stop working when a single provider runs dry.
+
+**Fallback order:** Claude (Anthropic) → ChatGPT (OpenAI) → Gemini (Google)
+→ Perplexity → DeepSeek → Grok (xAI).
+
+### Enabling it
+
+Set an API key for any providers you have, as environment variables before
+running `omniroute` (see `.env.example`):
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+export OPENAI_API_KEY=sk-...
+export GEMINI_API_KEY=...       # or GOOGLE_API_KEY
+export PERPLEXITY_API_KEY=...
+export DEEPSEEK_API_KEY=...
+export XAI_API_KEY=...
+
+omniroute
+```
+
+You don't need all of them — the gateway only routes to providers whose key
+is set, in the order above. With zero keys set, the gateway still starts but
+returns a clear error on requests until you add at least one.
+
+### Using it
+
+Send standard OpenAI-shaped chat completion requests:
+
+```bash
+curl http://localhost:20128/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+- `"model": "auto"` tries providers in fallback order until one succeeds.
+- `"model": "openai:gpt-4o"` (or `anthropic:`, `gemini:`, `perplexity:`,
+  `deepseek:`, `grok:`) targets one provider directly, bypassing failover.
+- `GET /status` returns which providers are configured and a log of recent
+  routing decisions (which provider served each request, and what it fell
+  back from).
+- `GET /v1/models` lists `auto` plus each configured provider.
+
+Other flags: `--gateway-port <number>` to change the port, `--no-gateway` /
+`--dashboard-only` to run just the dashboard, `--gateway-only` to run just
+the API with no UI.
+
+**Limitations to know about:** streaming (`"stream": true`) returns the
+full response as a single chunk rather than real token-by-token streaming;
+and this is local, unauthenticated routing between your own provider keys —
+it's not a way to get around a provider's usage limits, just a way to keep
+working on a different provider when one runs out.
+
+### Connecting IDE assistants (e.g. Continue)
+
+An example config is provided at
+[`examples/continue-config.yaml`](examples/continue-config.yaml):
+
+```yaml
+models:
+  - name: OmniRoute - Auto
+    provider: openai
+    model: auto
+    apiBase: http://localhost:20128/v1
+    apiKey: your_omniroute_api_key_here
+```
+
+Copy the `models` entry into your Continue config (`~/.continue/config.yaml`),
+merging it into an existing `models` list if you have one. The gateway
+doesn't check the `apiKey` field itself (it's meant to run locally, trusted),
+so any placeholder value works — the real provider keys live in your
+environment variables, per above.
 
 ## 📁 Project Structure
 
 ```
 jarvis-hub/
+├── bin/
+│   └── omniroute.js      # CLI entry point (starts the gateway + dashboard)
+├── gateway/
+│   ├── providers.js      # Provider adapters + fallback order
+│   └── server.js         # OpenAI-compatible API with automatic failover
+├── examples/
+│   └── continue-config.yaml  # Example client config for the OmniRoute gateway
+├── public/
+│   ├── manifest.webmanifest  # Installable-app manifest
+│   ├── icon.svg           # App icon
+│   └── sw.js               # Service worker (offline shell + installability)
 ├── src/
 │   ├── App.jsx           # Main React component
 │   ├── index.css         # Global styles

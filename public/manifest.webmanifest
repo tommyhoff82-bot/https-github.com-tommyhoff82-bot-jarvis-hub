@@ -1,0 +1,14 @@
+{
+  "name": "Jarvis Hub — OmniRoute Gateway Dashboard",
+  "short_name": "Jarvis Hub",
+  "description": "A single shareable hub for AI tools, automations, and creative apps.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

@@ -1,13 +1,26 @@
 {
-  "name": "jarvis-hub",
+  "name": "omniroute",
   "version": "1.0.0",
-  "description": "A modern premium web app hub for AI tools, automations, and creative workflows",
+  "description": "OmniRoute — the Jarvis Hub gateway dashboard: a single shareable hub for AI tools, automations, creative apps, research tools, marketing tools, and business tools.",
   "type": "module",
+  "bin": {
+    "omniroute": "./bin/omniroute.js"
+  },
+  "files": [
+    "bin",
+    "gateway",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint src --ext .js,.jsx"
+    "start": "node bin/omniroute.js",
+    "lint": "eslint src --ext .js,.jsx",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "react": "^18.2.0",
