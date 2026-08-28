@@ -81,6 +81,32 @@ This creates a `dist` folder with optimized production files. Once built, you ca
 npm start
 ```
 
+## 📲 Accessing & Installing the Dashboard as an App
+
+Once `omniroute` is running (see above), the dashboard of your connected
+resources is just a web page at `http://localhost:3000` (or whatever
+`--port` you passed) — open that URL in your browser to see it any time the
+CLI is running.
+
+To save it as an actual app instead of a browser tab, the dashboard ships
+with a web app manifest, icon, and service worker, so browsers offer a
+native "install" option:
+
+- **Chrome / Edge (desktop)**: with the dashboard open, click the install
+  icon (⊕ or a small monitor icon) at the right of the address bar, or open
+  the browser menu → "Install Jarvis Hub…" / "Apps → Install this site as
+  an app". It then opens in its own window and gets a launcher icon like
+  any other installed app.
+- **Chrome (Android)**: open the ⋮ menu → "Add to Home screen" / "Install
+  app".
+- **Safari (iOS)**: tap the Share icon → "Add to Home Screen".
+
+Once installed, it launches standalone (no browser chrome) and keeps
+working offline for the shell UI, since it's served by a small local
+service worker. You still need `omniroute` running locally for the tool
+links and any live data — installing it just gives you an app icon/window
+instead of a bookmark.
+
 ## 🔌 Connecting IDE Assistants to OmniRoute
 
 If you're also running an OmniRoute OpenAI-compatible gateway (a separate
