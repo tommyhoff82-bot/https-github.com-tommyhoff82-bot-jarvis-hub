@@ -152,6 +152,22 @@ git push origin main
 - **lucide-react** (v0.263.1) - Icon library
 - **vite** (v4.4.9) - Build tool
 
+## 🎬 MCP Video Setup
+
+This project ships a project-scoped [`.mcp.json`](.mcp.json) that registers the `mcp-video` MCP server for Claude Code, so anyone who opens this repo in Claude Code gets video tooling available automatically.
+
+If you'd rather set it up manually (or in another MCP-compatible client):
+
+```bash
+# Install the mcp-video package
+pip install mcp-video
+
+# Register it as an MCP server with Claude Code
+claude mcp add mcp-video -- uvx mcp-video
+```
+
+The `.mcp.json` entry runs the server via `uvx`, so no separate `pip install` is required for Claude Code itself — `uvx` fetches and runs `mcp-video` in an isolated environment on demand. The manual `pip install` step above is only needed if you want `mcp-video` available directly in your own Python environment (e.g., to use its CLI outside of Claude Code).
+
 ## 📄 License
 
 This project is open source and available under the MIT License.
