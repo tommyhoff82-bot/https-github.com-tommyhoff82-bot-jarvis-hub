@@ -88,16 +88,81 @@ when you build those features).
 | 34 | Install (redux) | see "Run it locally" below |
 | 35 | Wrap-up checklist | this file |
 
-**Two gaps worth knowing about, since the emails jump straight to working
+**Gaps worth knowing about, since the emails jump straight to working
 code:** `main.py` (Part 8) never actually wired the billing/Shopify routers
 in — I added `app.include_router(...)` calls for both so the endpoints in
 Parts 12–13 are reachable, and the `components/ui/button.tsx`, `card.tsx`,
 `input.tsx` used throughout the frontend pages were referenced but never
 sent — I added minimal Tailwind-based stand-ins so the app actually
 compiles. `postcss.config.js` was likewise required by Tailwind but never
-included. Everything else here is verbatim from the emails (with a handful
-of stray `=` characters restored — e.g. `days=30`, `status_code=401` — that
-the plain-text export of the original emails had silently dropped).
+included. Everything else in that original set is verbatim from the emails
+(with a handful of stray `=` characters restored — e.g. `days=30`,
+`status_code=401` — that the plain-text export of the original emails had
+silently dropped).
+
+## What's been added beyond the emails (real auth + real integrations)
+
+The email sequence describes a single-tenant demo: one hardcoded
+`workspace_id = "ws_123"`, no login, one global set of API keys. This repo
+is meant to be a **self-hosted template** other people deploy for their own
+business — that needs real auth even with a single operator, so the
+following is now real, working code, not scaffolding:
+
+- **Auth** (`backend/auth.py`, `backend/api/routes/auth.py`): bcrypt
+  password hashing, JWT sessions, `POST /api/auth/signup`,
+  `POST /api/auth/login`, `GET /api/auth/me`. Every route that touches a
+  workspace now requires a valid token and checks `require_workspace_owner`
+  before doing anything — workspace IDs are otherwise guessable.
+- **Workspace creation is now real**: `POST /api/workspaces` persists to
+  Postgres via Prisma (it used to just print and return a fake ID).
+- **Agent runs are now recorded**: triggering Scout or the Learner creates
+  a real `AgentTask` row, updates it to `completed`/`failed`, and
+  `GET /api/agents/tasks` reads that table instead of returning two
+  hardcoded fake rows.
+- **`/api/learning/insights` computes real numbers** from `AIDecision` /
+  `Learning` rows for the workspace, instead of always returning the same
+  canned `+18%` example.
+- **`backend/integrations/shopify.py`** and **`printify.py`**: proper API
+  clients (product creation, order lookup, catalog browsing) instead of
+  the one-off inline `httpx` call that used to live in the webhook
+  handler. The Shopify client is looked up per-workspace from the
+  `Integration` table, not a single global token — since this is a
+  template, everyone who deploys it eventually connects their own store.
+- **Frontend**: `/login`, `/signup` pages, an `AuthProvider` context
+  (`frontend/lib/auth.tsx`) backing a `RequireAuth` wrapper that gates
+  `/dashboard`, `/agents`, `/billing`, `/onboarding`; a real `/agents` page
+  (`AgentCard` + `AgentTaskList` components) to trigger and watch agent
+  runs; a real `/billing` page reading live plans from
+  `GET /api/billing/plans` and redirecting into actual Stripe Checkout.
+- **`GET /api/billing/plans`**: pricing tiers now live once, in
+  `backend/api/routes/billing.py`, instead of being hardcoded separately
+  in the landing page AND a billing page that would drift apart.
+- The Stripe webhook now actually sets `workspace.subscriptionTier` on a
+  completed checkout, matched against the price ID that was paid for.
+
+**Still not done, and worth being direct about:** there's no password
+reset flow, no email verification, no rate limiting on login/signup, and
+no UI yet for a workspace to paste in its own Shopify/Printify/Stripe
+credentials (the `Integration` table and `integrations/shopify.py` support
+per-workspace credentials — nothing writes a row into it yet, so
+`get_client_for_workspace` will always return `None` until you build that
+connection flow). Treat this as "auth and data are real," not "production
+hardened."
+
+### New files (not from any email)
+
+| File | Purpose |
+|------|---------|
+| `backend/auth.py` | Password hashing, JWT issue/verify, `get_current_user` / `require_workspace_owner` dependencies |
+| `backend/api/routes/auth.py` | `/api/auth/signup`, `/login`, `/me` |
+| `backend/integrations/shopify.py` | Per-workspace Shopify Admin API client |
+| `backend/integrations/printify.py` | Printify catalog + order-submission client |
+| `frontend/lib/auth.tsx` | `AuthProvider` / `useAuth()` — token + session state |
+| `frontend/components/RequireAuth.tsx` | Route guard: redirects to `/login` or `/onboarding` as needed |
+| `frontend/app/login/page.tsx`, `signup/page.tsx` | Real sign-in / sign-up forms |
+| `frontend/app/agents/page.tsx` + `components/agents/*` | Trigger Scout/Learner, watch task history |
+| `frontend/app/billing/page.tsx` | Live plans + real Stripe Checkout redirect |
+| `frontend/public/logo.svg`, `robots.txt` | Static assets the `mkdir -p frontend/public` step never got filled |
 
 ## Run it locally (Parts 26–28, 34)
 
@@ -118,7 +183,16 @@ npm run dev
 
 Copy `backend/.env.example` → `backend/.env` and
 `frontend/.env.local.example` → `frontend/.env.local`, then fill in the
-real keys from Phase 1.
+real keys from Phase 1. Also generate a session secret — the server
+refuses to issue login tokens without it:
+
+```bash
+openssl rand -hex 32   # paste the output into JWT_SECRET in backend/.env
+```
+
+Then visit `http://localhost:3000/signup` to create your account before
+anything else — every other page (dashboard, agents, billing) requires
+being logged in.
 
 ## Ship it (Part 30)
 

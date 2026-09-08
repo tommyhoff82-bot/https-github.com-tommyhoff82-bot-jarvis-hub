@@ -11,8 +11,12 @@ llm = ChatOpenAI(model="gpt-4o", temperature=0.3,
 
 
 async def analyze_patterns(workspace_id: str):
+    """Assumes the Prisma client is already connected — main.py connects it
+    once at app startup and disconnects at shutdown. If you call this from
+    a standalone script instead of through the API, wrap the call with
+    `db.connect_db()` / `db.disconnect_db()` yourself (see backend/db.py).
+    """
     print(f"🔬 Analyzing patterns for {workspace_id}")
-    await db.connect()
 
     workspace = await db.workspace.find_unique(where={"id": workspace_id})
     niche = workspace.niche
@@ -27,7 +31,6 @@ async def analyze_patterns(workspace_id: str):
     )
 
     if len(decisions) < 10:
-        await db.disconnect()
         return
 
     prompt = f"""Analyze these AI decisions:

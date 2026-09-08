@@ -12,7 +12,7 @@ export default function LandingPage() {
             <Bot className="w-8 h-8 text-blue-400" />
             <span className="text-xl font-bold">CommerceOS</span>
           </div>
-          <Link href="/onboarding">
+          <Link href="/signup">
             <Button className="bg-blue-600 hover:bg-blue-700">Start Free Trial</Button>
           </Link>
         </div>
@@ -34,7 +34,7 @@ export default function LandingPage() {
             smarter with every sale.
           </p>
 
-          <Link href="/onboarding">
+          <Link href="/signup">
             <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6">
               Start Your AI Business <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
