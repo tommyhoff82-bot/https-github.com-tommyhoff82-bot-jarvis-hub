@@ -44,6 +44,7 @@ function DashboardContent() {
           <Link href="/dashboard" className="block p-2 rounded hover:bg-gray-800">Dashboard</Link>
           <Link href="/agents" className="block p-2 rounded hover:bg-gray-800">AI Agents</Link>
           <Link href="/billing" className="block p-2 rounded hover:bg-gray-800">Billing</Link>
+          <Link href="/settings/integrations" className="block p-2 rounded hover:bg-gray-800">Integrations</Link>
         </nav>
         <div className="border-t border-gray-800 pt-4">
           <p className="text-xs text-gray-500 mb-2 truncate">{user?.email}</p>

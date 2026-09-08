@@ -140,14 +140,32 @@ following is now real, working code, not scaffolding:
 - The Stripe webhook now actually sets `workspace.subscriptionTier` on a
   completed checkout, matched against the price ID that was paid for.
 
-**Still not done, and worth being direct about:** there's no password
-reset flow, no email verification, no rate limiting on login/signup, and
-no UI yet for a workspace to paste in its own Shopify/Printify/Stripe
-credentials (the `Integration` table and `integrations/shopify.py` support
-per-workspace credentials — nothing writes a row into it yet, so
-`get_client_for_workspace` will always return `None` until you build that
-connection flow). Treat this as "auth and data are real," not "production
-hardened."
+## Connecting your own store (`/settings/integrations`)
+
+Each workspace now connects its own Shopify store and Printify account
+from the app itself — `POST /api/integrations/shopify` and
+`/api/integrations/printify` validate the credential against the real API
+(fetches the shop, or checks the key can see the given shop ID) before
+saving it to that workspace's `Integration` row, so a bad token fails at
+connect time with a clear message instead of failing silently on the next
+order. `GET /api/integrations` never returns the stored token/key back to
+the client. This closes the gap where `get_client_for_workspace` always
+returned `None` — Scout and any future product-push code now resolve a
+real, workspace-scoped Shopify client once a store is connected.
+
+Two things this does *not* do: it doesn't use Shopify OAuth (you paste in
+a custom app's Admin API access token instead — simpler for a self-hosted
+template, no redirect flow to build/host), and the Shopify order webhook
+(`api/webhooks/shopify.py`) still fulfills through the single
+`PRINTIFY_SHOP_ID`/`PRINTIFY_API_KEY` in `.env` rather than routing to the
+specific workspace an order belongs to — fine for one active store per
+deployment, a real limitation the moment more than one workspace connects
+its own Shopify store on the same deployment and expects orders to
+fulfill through its own Printify account.
+
+**Still not done, and worth being direct about:** no password reset flow,
+no email verification, no rate limiting on login/signup. Treat this as
+"auth and data are real," not "production hardened."
 
 ### New files (not from any email)
 
@@ -157,6 +175,8 @@ hardened."
 | `backend/api/routes/auth.py` | `/api/auth/signup`, `/login`, `/me` |
 | `backend/integrations/shopify.py` | Per-workspace Shopify Admin API client |
 | `backend/integrations/printify.py` | Printify catalog + order-submission client |
+| `backend/api/routes/integrations.py` | Validate + save a workspace's own Shopify/Printify credentials |
+| `frontend/app/settings/integrations/page.tsx` | UI to connect/disconnect a workspace's store |
 | `frontend/lib/auth.tsx` | `AuthProvider` / `useAuth()` — token + session state |
 | `frontend/components/RequireAuth.tsx` | Route guard: redirects to `/login` or `/onboarding` as needed |
 | `frontend/app/login/page.tsx`, `signup/page.tsx` | Real sign-in / sign-up forms |

@@ -78,3 +78,37 @@ export async function createCheckoutSession(token: string, workspaceId: string, 
   const params = new URLSearchParams({ workspace_id: workspaceId, price_id: priceId });
   return apiFetch(`/api/billing/checkout?${params.toString()}`, { method: "POST", token });
 }
+
+// --- Integrations (connect your own store) ---
+
+export interface Integration {
+  platform: string;
+  storeId: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export async function getIntegrations(token: string, workspaceId: string): Promise<Integration[]> {
+  return apiFetch(`/api/integrations?workspace_id=${encodeURIComponent(workspaceId)}`, { token });
+}
+
+export async function connectShopify(token: string, workspaceId: string, shopDomain: string, accessToken: string) {
+  return apiFetch("/api/integrations/shopify", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ workspace_id: workspaceId, shop_domain: shopDomain, access_token: accessToken }),
+  });
+}
+
+export async function connectPrintify(token: string, workspaceId: string, shopId: string, apiKey: string) {
+  return apiFetch("/api/integrations/printify", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ workspace_id: workspaceId, shop_id: shopId, api_key: apiKey }),
+  });
+}
+
+export async function disconnectIntegration(token: string, workspaceId: string, platform: string) {
+  const params = new URLSearchParams({ workspace_id: workspaceId });
+  return apiFetch(`/api/integrations/${platform}?${params.toString()}`, { method: "DELETE", token });
+}

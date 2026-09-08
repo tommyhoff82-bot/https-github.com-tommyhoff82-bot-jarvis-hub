@@ -10,6 +10,7 @@ from db import db, connect_db, disconnect_db
 from auth import get_current_user, require_workspace_owner
 from api.routes import auth as auth_routes
 from api.routes import billing
+from api.routes import integrations
 from api.webhooks import shopify
 
 load_dotenv()
@@ -26,6 +27,7 @@ app.add_middleware(
 
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
+app.include_router(integrations.router, prefix="/api")
 app.include_router(shopify.router, prefix="/api")
 
 
