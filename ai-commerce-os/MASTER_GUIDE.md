@@ -153,15 +153,29 @@ the client. This closes the gap where `get_client_for_workspace` always
 returned `None` — Scout and any future product-push code now resolve a
 real, workspace-scoped Shopify client once a store is connected.
 
-Two things this does *not* do: it doesn't use Shopify OAuth (you paste in
-a custom app's Admin API access token instead — simpler for a self-hosted
-template, no redirect flow to build/host), and the Shopify order webhook
-(`api/webhooks/shopify.py`) still fulfills through the single
-`PRINTIFY_SHOP_ID`/`PRINTIFY_API_KEY` in `.env` rather than routing to the
-specific workspace an order belongs to — fine for one active store per
-deployment, a real limitation the moment more than one workspace connects
-its own Shopify store on the same deployment and expects orders to
-fulfill through its own Printify account.
+This does *not* use Shopify OAuth — you paste in a custom app's Admin API
+access token instead, which is simpler for a self-hosted template (no
+redirect flow to build/host) but means each workspace owner has to create
+that custom app themselves in their own Shopify admin.
+
+**Webhook routing is now fixed.** The order webhook
+(`api/webhooks/shopify.py`) used to fulfill every order through one global
+`PRINTIFY_SHOP_ID`/`PRINTIFY_API_KEY` regardless of which store it came
+from. It now reads the `X-Shopify-Shop-Domain` header, looks up which
+workspace has that domain connected (`Integration` table, `platform ==
+"shopify"`), then fulfills through *that* workspace's own connected
+Printify account — not a global one. If a webhook arrives for a domain no
+workspace has connected, or the matching workspace hasn't connected
+Printify yet, it now fails loudly (404 / 422) instead of silently
+fulfilling through the wrong account.
+
+One real limitation this doesn't fix: `SHOPIFY_WEBHOOK_SECRET` is still
+one deployment-wide value, because Shopify issues a webhook secret per
+*app*, not per *store* — every store's order webhooks on this deployment
+are verified against the same secret. Fine as long as one custom app
+handles every connected store; a genuinely separate secret per store
+would mean generating/storing one per `Integration` row and looking it up
+by shop domain the same way the routing fix above does.
 
 **Still not done, and worth being direct about:** no password reset flow,
 no email verification, no rate limiting on login/signup. Treat this as

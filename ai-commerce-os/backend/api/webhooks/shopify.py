@@ -6,13 +6,13 @@ import os
 from fastapi import APIRouter, Request, HTTPException
 from dotenv import load_dotenv
 
+from db import db
 from integrations import printify
 
 load_dotenv()
 router = APIRouter()
 
 SHOPIFY_SECRET = os.getenv("SHOPIFY_WEBHOOK_SECRET")
-PRINTIFY_SHOP_ID = os.getenv("PRINTIFY_SHOP_ID", "12345")
 
 
 async def verify_shopify_webhook(request: Request):
@@ -29,8 +29,34 @@ async def verify_shopify_webhook(request: Request):
 @router.post("/webhooks/shopify/orders")
 async def handle_shopify_order(request: Request):
     order_data = await verify_shopify_webhook(request)
-    print(f"📦 New order from {request.headers.get('X-Shopify-Shop-Domain')}")
+    shop_domain = request.headers.get("X-Shopify-Shop-Domain")
+    print(f"📦 New order from {shop_domain}")
 
-    result = await printify.submit_order(PRINTIFY_SHOP_ID, order_data)
-    print(f"✅ Order sent to Printify: {result.get('id', 'unknown id')}")
+    # Route the order to whichever workspace actually connected this
+    # Shopify store, rather than a single global shop/key — this is what
+    # makes fulfillment correct once more than one workspace connects a
+    # store on the same deployment (see /settings/integrations).
+    shopify_integration = await db.integration.find_first(
+        where={"platform": "shopify", "storeId": shop_domain, "isActive": True}
+    )
+    if not shopify_integration:
+        # A store sent us a webhook we don't recognize — most likely it was
+        # disconnected after the webhook was registered. Nothing to fulfill.
+        raise HTTPException(status_code=404, detail=f"No workspace has {shop_domain} connected")
+
+    printify_integration = await db.integration.find_first(
+        where={"workspaceId": shopify_integration.workspaceId, "platform": "printify", "isActive": True}
+    )
+    if not printify_integration:
+        print(f"⚠️  Workspace {shopify_integration.workspaceId} has no Printify account connected — "
+              f"order from {shop_domain} received but not fulfilled")
+        raise HTTPException(status_code=422, detail="This workspace hasn't connected Printify yet")
+
+    result = await printify.submit_order(
+        shop_id=printify_integration.storeId,
+        order_data=order_data,
+        api_key=printify_integration.accessToken,
+    )
+    print(f"✅ Order sent to Printify for workspace {shopify_integration.workspaceId}: "
+          f"{result.get('id', 'unknown id')}")
     return {"status": "received"}
