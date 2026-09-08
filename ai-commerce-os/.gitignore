@@ -10,3 +10,6 @@ build/
 .DS_Store
 *.log
 *.tsbuildinfo
+test-results/
+playwright-report/
+.pytest_cache/

@@ -233,6 +233,39 @@ project has had: not "it imports," not "curl gets a 200," but an actual
 user journey, in an actual browser, against actual running servers,
 observed to work.
 
+## Automated tests
+
+Everything above was a one-off manual pass — real, but it vanishes the
+moment the terminal closes. It's now backed by a committed, repeatable
+test suite so the next change gets checked automatically instead of by
+hand:
+
+- **`backend/tests/`** (pytest): `test_auth_unit.py` covers password
+  hashing and JWT tokens with no database needed.
+  `test_api_integration.py` hits the real FastAPI app through a real
+  Postgres database — signup/login/duplicate-email/wrong-password,
+  workspace creation actually persisting, cross-user workspace access
+  correctly rejected, the learner completing cleanly with zero decisions,
+  billing/integrations failure paths returning clean 4xx/5xx instead of
+  crashing. Skipped automatically (not failed) if `TEST_DATABASE_URL`
+  isn't set — see `backend/tests/conftest.py` for setup. Run with:
+  ```bash
+  pip install -r requirements.txt -r requirements-dev.txt
+  export TEST_DATABASE_URL="postgresql://user:pass@localhost:5432/ai_commerce_os_test"
+  export JWT_SECRET="test-secret"
+  prisma db push   # with DATABASE_URL set to the same test database
+  pytest tests/
+  ```
+- **`frontend/e2e/`** (Playwright): the committed version of the browser
+  click-through above — same journey, same zero-console-errors
+  assertion, runnable on demand instead of by hand. See
+  `frontend/e2e/README.md` for setup (needs both servers running against
+  a disposable test database). Run with `npm run test:e2e`.
+
+Both suites are written to catch exactly the class of bug this whole
+verification effort found — a broken dependency pin, a crash on import, a
+missing static asset — not just "does the code parse."
+
 ## Connecting your own store (`/settings/integrations`)
 
 Each workspace now connects its own Shopify store and Printify account
@@ -290,6 +323,9 @@ no email verification, no rate limiting on login/signup. Treat this as
 | `frontend/app/agents/page.tsx` + `components/agents/*` | Trigger Scout/Learner, watch task history |
 | `frontend/app/billing/page.tsx` | Live plans + real Stripe Checkout redirect |
 | `frontend/public/logo.svg`, `robots.txt` | Static assets the `mkdir -p frontend/public` step never got filled |
+| `frontend/app/icon.svg` | Favicon (Next.js's auto-served convention) — the browser's automatic `/favicon.ico` request 404'd without it |
+| `backend/tests/` | pytest suite — see "Automated tests" below |
+| `frontend/e2e/` | Playwright suite — see "Automated tests" below |
 
 ## Run it locally (Parts 26–28, 34)
 

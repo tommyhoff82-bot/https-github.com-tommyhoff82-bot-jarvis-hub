@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -15,7 +17,15 @@ from api.webhooks import shopify
 
 load_dotenv()
 
-app = FastAPI(title="AI Commerce OS API", version="2.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_db()
+    yield
+    await disconnect_db()
+
+
+app = FastAPI(title="AI Commerce OS API", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,16 +39,6 @@ app.include_router(auth_routes.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
 app.include_router(integrations.router, prefix="/api")
 app.include_router(shopify.router, prefix="/api")
-
-
-@app.on_event("startup")
-async def on_startup():
-    await connect_db()
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    await disconnect_db()
 
 
 class WorkspaceCreate(BaseModel):
