@@ -166,7 +166,8 @@ For questions or suggestions, feel free to open an issue on GitHub.
 automated e-commerce SaaS scaffold (Next.js frontend + FastAPI backend,
 LangGraph agents, Pinecone-backed pattern learning, Shopify/Printify/Stripe
 integrations). See `ai-commerce-os/MASTER_GUIDE.md` for the full build and
-run instructions.
+run instructions, or `ai-commerce-os/DEPLOYMENT.md` to put it on a real
+public URL (Supabase + Railway + Vercel).
 
 ---
 

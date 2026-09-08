@@ -371,6 +371,10 @@ git push -u origin main
 (Already tracked inside this repo — no separate remote needed unless you
 want to split it out.)
 
+For an actual public URL — not just local `git push` — see
+`DEPLOYMENT.md`: a real Supabase database is already provisioned, plus
+the exact Railway (backend) and Vercel (frontend) steps.
+
 ## How the self-learning loop compounds (Part 33)
 
 ```
