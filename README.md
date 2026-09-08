@@ -160,6 +160,14 @@ This project is open source and available under the MIT License.
 
 For questions or suggestions, feel free to open an issue on GitHub.
 
+## 🏗️ AI Commerce OS
+
+`ai-commerce-os/` is a separate, full-stack sub-project: a self-learning,
+automated e-commerce SaaS scaffold (Next.js frontend + FastAPI backend,
+LangGraph agents, Pinecone-backed pattern learning, Shopify/Printify/Stripe
+integrations). See `ai-commerce-os/MASTER_GUIDE.md` for the full build and
+run instructions.
+
 ---
 
 ✨ **Powered by Jarvis Hub** - Your personal AI tools operating system

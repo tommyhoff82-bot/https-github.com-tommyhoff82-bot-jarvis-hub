@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  workspaces   Workspace[]
+}
+
+model Workspace {
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id])
+  businessName     String
+  niche            String
+  subscriptionTier String        @default("starter")
+  status           String        @default("active")
+  integrations     Integration[]
+  agentConfigs     AgentConfig[]
+  agentTasks       AgentTask[]
+  products         Product[]
+  orders           Order[]
+  addOns           AddOn[]
+  aiDecisions      AIDecision[]
+  learnings        Learning[]
+  createdAt        DateTime      @default(now())
+}
+
+model Integration {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+  platform     String
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
+  storeId      String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+}
+
+model AgentConfig {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+  agentType     String
+  isEnabled     Boolean   @default(false)
+  configuration Json
+  updatedAt     DateTime  @updatedAt
+}
+
+model AgentTask {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+  agentType    String
+  actionType   String
+  status       String    @default("pending")
+  resultData   Json?
+  errorMessage String?   @db.Text
+  createdAt    DateTime  @default(now())
+}
+
+model Product {
+  id           String      @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace   @relation(fields: [workspaceId], references: [id])
+  supplierId   String
+  shopifyId    String?
+  title        String
+  description  String      @db.Text
+  costPrice    Float
+  retailPrice  Float
+  status       String      @default("draft")
+  importedAt   DateTime    @default(now())
+  orders       Order[]
+  decisions    AIDecision[]
+}
+
+model Order {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  shopifyOrderId  String    @unique
+  printifyOrderId String?
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  customerEmail   String
+  totalAmount     Float
+  profit          Float
+  status          String    @default("pending")
+  createdAt       DateTime  @default(now())
+}
+
+model AddOn {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace @relation(fields: [workspaceId], references: [id])
+  addonName        String
+  isActive         Boolean   @default(false)
+  creditsRemaining Int       @default(0)
+}
+
+model AIDecision {
+  id                 String    @id @default(cuid())
+  workspaceId        String
+  workspace          Workspace @relation(fields: [workspaceId], references: [id])
+  productId          String?
+  product            Product?  @relation(fields: [productId], references: [id])
+  decisionType       String
+  decisionData       Json
+  context            Json
+  outcome            String?
+  outcomeData        Json?
+  outcomeRecordedAt  DateTime?
+  confidence         Float
+  learningId         String?
+  createdAt          DateTime  @default(now())
+
+  @@index([workspaceId, decisionType, outcome])
+}
+
+model Learning {
+  id               String     @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace  @relation(fields: [workspaceId], references: [id])
+  category         String
+  lesson           String     @db.Text
+  confidence       Float
+  sampleSize       Int
+  applicableNiche  String?
+  vectorId         String?
+  isActive         Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  decisions        AIDecision[]
+
+  @@index([workspaceId, category])
+}
