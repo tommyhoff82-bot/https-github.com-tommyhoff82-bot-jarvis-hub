@@ -6,9 +6,6 @@ import json
 import os
 import uuid
 
-llm = ChatOpenAI(model="gpt-4o", temperature=0.3,
-                  api_key=os.getenv("OPENAI_API_KEY"))
-
 
 async def analyze_patterns(workspace_id: str):
     """Assumes the Prisma client is already connected — main.py connects it
@@ -32,6 +29,11 @@ async def analyze_patterns(workspace_id: str):
 
     if len(decisions) < 10:
         return
+
+    # Constructed lazily, only once we know we actually need it — building
+    # this at import time (as the original email had it) crashes the whole
+    # module import when OPENAI_API_KEY isn't set, even on this no-op path.
+    llm = ChatOpenAI(model="gpt-4o", temperature=0.3, api_key=os.getenv("OPENAI_API_KEY"))
 
     prompt = f"""Analyze these AI decisions:
 NICHE: {niche}
@@ -64,5 +66,3 @@ Identify 3 patterns. Return JSON array with: lesson, confidence (0-1), applicabl
             print(f"💡 Learning stored: {pattern['lesson'][:50]}")
     except Exception as e:
         print(f"❌ Error: {e}")
-
-    await db.disconnect()

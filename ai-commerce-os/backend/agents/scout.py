@@ -1,3 +1,4 @@
+from functools import lru_cache
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from typing import List, TypedDict
@@ -18,8 +19,14 @@ class AgentState(TypedDict):
     relevant_learnings: List[dict]
 
 
-llm = ChatOpenAI(model="gpt-4o", temperature=0.2,
-                  api_key=os.getenv("OPENAI_API_KEY"))
+@lru_cache
+def get_llm() -> ChatOpenAI:
+    """Built on first actual use, not at import time — constructing this
+    eagerly at module scope (as the original email had it) meant simply
+    importing this file crashed without OPENAI_API_KEY set, even before
+    Scout was ever triggered.
+    """
+    return ChatOpenAI(model="gpt-4o", temperature=0.2, api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def retrieve_learnings(state: AgentState):
@@ -42,7 +49,7 @@ def research_trends(state: AgentState):
 {learning_context}
 Include: name, cost, price, why_trending. Return JSON array only."""
 
-    response = llm.invoke(prompt)
+    response = get_llm().invoke(prompt)
     return {"raw_trends": response.content}
 
 
@@ -50,7 +57,7 @@ def evaluate_products(state: AgentState):
     prompt = f"""Analyze these products: {state['raw_trends']}
 Evaluate profit margin (3x+ markup) and virality (1-10).
 Return top 3 as JSON array."""
-    response = llm.invoke(prompt)
+    response = get_llm().invoke(prompt)
     try:
         return {"evaluated_products": json.loads(response.content)}
     except Exception:
@@ -62,7 +69,7 @@ def format_for_store(state: AgentState):
     for product in state['evaluated_products']:
         prompt = f"""Write Shopify listing for: {product.get('name', 'Product')}
 Return JSON with: title, description, tags"""
-        response = llm.invoke(prompt)
+        response = get_llm().invoke(prompt)
         try:
             listing = json.loads(response.content)
             final.append({**listing, "cost": product.get('cost', 0),

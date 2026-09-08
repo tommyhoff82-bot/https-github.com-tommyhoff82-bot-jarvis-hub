@@ -140,6 +140,62 @@ following is now real, working code, not scaffolding:
 - The Stripe webhook now actually sets `workspace.subscriptionTier` on a
   completed checkout, matched against the price ID that was paid for.
 
+## Actually verified, not just imported
+
+Everything above this point had only been checked statically — `py_compile`,
+JSON parsing, a synthetic import test. None of that proves the app *runs*.
+It was then actually installed and booted for real: `pip install -r
+requirements.txt`, a real local Postgres 16, `prisma db push`, `uvicorn
+main:app`, and `npm install && npm run build` on the frontend. That surfaced
+five real bugs, all now fixed:
+
+1. **`requirements.txt` was uninstallable.** `arq==0.26.0` requires
+   `redis<5`, but the very next line pins `redis==5.0.3` — a hard conflict,
+   straight from the original email. Bumped to `arq==0.26.3` (same minor
+   version; PyPI patch release relaxed the constraint to `redis<6`).
+2. **`email-validator==2.1.0`** (a version I'd pinned for the auth work) is
+   yanked from PyPI. Bumped to `2.1.1`.
+3. **`schema.prisma` had a second broken relation** beyond the one already
+   fixed: `Learning.decisions AIDecision[]` pointed at `AIDecision` with no
+   matching field on the other side — `prisma generate` refused to run.
+   Fixed by turning `AIDecision.learningId` from a bare string into a real
+   `@relation` back to `Learning`.
+4. **`agents/scout.py`, `workers/learner.py`, and `vector_db.py` all
+   constructed their OpenAI/Pinecone clients at *module import time***,
+   straight from the original emails. That meant importing any of them —
+   even down a code path that never calls the LLM at all, like the
+   learner's "fewer than 10 decisions, do nothing" early return — crashed
+   with `You haven't specified an Api-Key` if those keys weren't set yet.
+   All three now build their clients lazily, on first actual use.
+5. Also found and removed a bug I'd introduced myself: a leftover
+   `await db.disconnect()` at the end of `analyze_patterns` that would
+   have killed the whole app's shared database connection the first time
+   the learner actually found ≥10 decisions to analyze.
+6. **`next@14.1.0` (pinned in the original email) has a disclosed critical
+   vulnerability** (SSRF in Server Actions, cache poisoning, and others —
+   `npm audit`). Bumped to `14.2.35`, which clears the critical finding.
+   A handful of high-severity findings remain that only fully clear with a
+   major-version jump to Next 16 — a breaking change (different APIs) out
+   of scope for this pass; worth doing deliberately later, not as a side
+   effect of a dependency bump.
+
+With those fixes, this was confirmed working end-to-end against a real
+database: signup, login, duplicate-email rejection, wrong-password
+rejection, workspace creation actually persisting, the learner agent
+completing cleanly with zero decisions, the Scout agent failing *inside
+its real Pinecone call* (not at import) when no key is configured, bad
+Shopify/Printify credentials rejected with 400s instead of 500s, billing
+checkout correctly refusing with 503 when Stripe isn't configured, and
+cross-user workspace access correctly rejected with 403. The frontend
+type-checks clean (`tsc --noEmit`) and produces a real production build
+(`npm run build`, all 9 routes render).
+
+**What this still doesn't prove:** the OpenAI/Pinecone/Shopify/Printify/
+Stripe integration code paths themselves — nothing here exercised a real
+external API key, so Scout's actual product research, Printify order
+submission, and Stripe Checkout redirects are still unverified beyond
+"fails the way it should when unconfigured."
+
 ## Connecting your own store (`/settings/integrations`)
 
 Each workspace now connects its own Shopify store and Printify account
