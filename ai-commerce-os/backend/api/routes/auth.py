@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 
 from db import db
-from auth import hash_password, verify_password, create_access_token, get_current_user
+from auth import hash_password, verify_password, create_access_token, get_current_user, BCRYPT_MAX_BYTES
 
 router = APIRouter()
 
@@ -25,6 +25,8 @@ def _public_user(user) -> dict:
 async def signup(data: SignupRequest):
     if len(data.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if len(data.password.encode("utf-8")) > BCRYPT_MAX_BYTES:
+        raise HTTPException(status_code=400, detail=f"Password must be at most {BCRYPT_MAX_BYTES} bytes")
 
     existing = await db.user.find_unique(where={"email": data.email})
     if existing:

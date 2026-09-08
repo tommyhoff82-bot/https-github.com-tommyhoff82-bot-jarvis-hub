@@ -196,6 +196,43 @@ external API key, so Scout's actual product research, Printify order
 submission, and Stripe Checkout redirects are still unverified beyond
 "fails the way it should when unconfigured."
 
+## Then verified again, in an actual browser
+
+Passing curl checks against the API isn't the same as the app working —
+nothing had actually clicked through the React frontend yet. So: booted
+both servers for real (`uvicorn` + `next dev`) and drove a real headless
+Chromium through the entire user journey with Playwright — landing page →
+signup → onboarding (both steps) → dashboard → trigger the Learner agent
+from the UI and watch it complete → billing → integrations → sign out →
+confirm `RequireAuth` actually blocks the dashboard once logged out. All
+13 checks passed, backed by real network calls to the real backend, not
+mocks. That pass caught two more real bugs:
+
+1. **`passlib` doesn't actually work with any current `bcrypt` release.**
+   The earlier fix pinned `bcrypt==4.0.1` to work around passlib's
+   internal self-test crashing — that held up in isolated testing, but
+   failed the same way in a full server run (`bcrypt` has no `__about__`
+   submodule in the installed wheel passlib expects). This isn't a
+   version-pin problem to keep chasing: passlib hasn't shipped a release
+   since 2020 and this whole compatibility class is unfixed upstream
+   (github.com/pyca/bcrypt/issues/684). Removed passlib entirely —
+   `auth.py` now calls `bcrypt.hashpw`/`bcrypt.checkpw` directly, which is
+   the fix the wider FastAPI community has converged on for this exact
+   problem. Also means the app now correctly rejects (400, not a crash)
+   a password over bcrypt's real 72-byte limit, which passlib's version
+   never actually enforced correctly at the API boundary either.
+2. **The default browser favicon request 404'd.** `public/logo.svg`
+   existed, but nothing served the `/favicon.ico` every browser requests
+   automatically. Fixed properly via Next.js's own convention —
+   `app/icon.svg` — which gets auto-served and auto-injected into
+   `<head>` with no manual `<link>` tag needed.
+
+With both fixed, the full click-through produced **zero console or page
+errors** across the entire flow. This is the strongest verification this
+project has had: not "it imports," not "curl gets a 200," but an actual
+user journey, in an actual browser, against actual running servers,
+observed to work.
+
 ## Connecting your own store (`/settings/integrations`)
 
 Each workspace now connects its own Shopify store and Printify account

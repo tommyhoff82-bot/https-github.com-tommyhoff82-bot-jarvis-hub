@@ -13,6 +13,11 @@ stripe==9.0.0
 pinecone-client==3.1.0
 numpy==1.26.4
 openai==1.12.0
-passlib[bcrypt]==1.7.4
+# Hashing calls bcrypt directly (see auth.py) rather than going through
+# passlib — passlib's own self-test crashes against modern bcrypt
+# releases (confirmed against both 4.0.1 and 5.0.0 in this repo's testing:
+# https://github.com/pyca/bcrypt/issues/684), and passlib hasn't had a
+# release since 2020 to fix it.
+bcrypt==4.2.1
 pyjwt==2.8.0
 email-validator==2.1.1

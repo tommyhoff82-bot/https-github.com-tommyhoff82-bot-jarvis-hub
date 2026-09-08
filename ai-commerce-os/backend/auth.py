@@ -8,11 +8,11 @@ out who's calling and reject anyone who isn't.
 import os
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 import jwt
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from passlib.context import CryptContext
 
 from db import db
 
@@ -22,16 +22,31 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))  # 7 days
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
+
+# Hashing calls the bcrypt library directly rather than through passlib.
+# passlib (last released 2020, effectively unmaintained) ships an internal
+# self-test on first use that breaks against modern bcrypt releases —
+# confirmed against bcrypt 4.0.1 *and* 5.0.0 in this repo's own testing,
+# both raising "password cannot be longer than 72 bytes" on the very first
+# hash regardless of the actual password's length. Calling bcrypt directly
+# sidesteps that fragile coupling entirely.
+BCRYPT_MAX_BYTES = 72  # bcrypt's real, hard limit — not the passlib bug
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    if len(password.encode("utf-8")) > BCRYPT_MAX_BYTES:
+        raise ValueError(f"Password must be at most {BCRYPT_MAX_BYTES} bytes")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return pwd_context.verify(password, password_hash)
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except ValueError:
+        # Malformed/legacy hash, or a password over bcrypt's 72-byte limit —
+        # either way, it doesn't match.
+        return False
 
 
 def create_access_token(user_id: str) -> str:
